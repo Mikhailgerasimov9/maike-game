@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>M.AI.KE</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      background: #111;
+    }
+    /* UI-счетчик */
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 20px;
+      z-index: 10;
+    }
+    /* Стартовый экран */
+    #startScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      z-index: 20;
+    }
+    #startScreen h1 {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+    #startScreen p {
+      font-size: 20px;
+      margin: 5px;
+    }
+    #startScreen ul {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+      font-size: 18px;
+      text-align: left;
+    }
+    /* Кружок для старта игры */
+    #startCircle {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, #ff69b4, #ff1493);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      color: #fff;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: transform 0.3s ease;
+      box-shadow: 0 0 15px rgba(255,20,147,0.8);
+    }
+    #startCircle:hover {
+      transform: scale(1.1);
+    }
+    /* Экран завершения уровня (при успешном прохождении) */
+    #levelCompleteScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      z-index: 30;
+    }
+    #levelCompleteScreen h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    #levelCompleteScreen p {
+      font-size: 24px;
+      margin: 10px 0;
+    }
+    /* Кружок для перехода на следующий уровень / повторного прохождения */
+    #nextLevelButton {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, #32cd32, #228b22);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      color: #fff;
+      cursor: pointer;
+      margin-top: 20px;
+      box-shadow: 0 0 15px rgba(34,139,34,0.8);
+      transition: transform 0.3s ease;
+    }
+    #nextLevelButton:hover {
+      transform: scale(1.1);
+    }
+    /* Экран неудачи уровня */
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      display: none;
+      z-index: 20;
+    }
+    #gameOver h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+    #gameOver button {
+      padding: 10px 20px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    /* On-screen D-Pad для мобильного управления */
+    #dpad {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #dpad button {
+      width: 50px;
+      height: 50px;
+      margin: 5px;
+      font-size: 24px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.7);
+      border: none;
+    }
+    #dpad div {
+      display: flex;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- UI-счетчик -->
+  <div id="ui">
+    Score: <span id="score">0</span> | Time: <span id="time">0</span>
+  </div>
+
+  <!-- Стартовый экран -->
+  <div id="startScreen">
+    <h1>M.AI.KE</h1>
+    <p id="highScoreDisplay">High Score: 0</p>
+    <p>Управление: клавиши <strong>W A S D</strong> и стрелками</p>
+    <p>Собирай друзей и бонусы, избегай вражеских пуль!</p>
+    <p>Бонусы:</p>
+    <ul>
+      <li>• Голубой (Score): +10 очков</li>
+      <li>• Пурпурный (Speed): ускорение на 5 сек</li>
+      <li>• Синий (Shield): неуязвимость к пулям на 5 сек</li>
+      <li>• Оранжевый (Magnet): притягивает друзей на 5 сек</li>
+    </ul>
+    <!-- Кружок для старта игры -->
+    <div id="startCircle" onclick="startGame()">START</div>
+  </div>
+
+  <!-- Экран завершения уровня -->
+  <div id="levelCompleteScreen"></div>
+
+  <!-- Экран неудачи уровня -->
+  <div id="gameOver"></div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- On-screen D-Pad для мобильного управления -->
+  <div id="dpad">
+    <button id="btn-up">▲</button>
+    <div>
+      <button id="btn-left">◄</button>
+      <button id="btn-right">►</button>
+    </div>
+    <button id="btn-down">▼</button>
+  </div>
+
+  <script>
+    // Настройка canvas и основных элементов
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const scoreEl = document.getElementById("score");
+    const timeEl = document.getElementById("time");
+    const gameOverEl = document.getElementById("gameOver");
+    const startScreenEl = document.getElementById("startScreen");
+    const highScoreDisplayEl = document.getElementById("highScoreDisplay");
+    const levelCompleteScreenEl = document.getElementById("levelCompleteScreen");
+
+    // На старте всегда high score = 0
+    let highScore = 0;
+    updateHighScoreDisplay();
+
+    // Параметры уровней: время 60 сек, цель: уровень 1 – 20, уровень 2 – 40, уровень 3 – 50 очков;
+    // препятствия: нет на 1, 3 на 2, 5 на 3.
+    const levels = [
+      { timeLimit: 60, targetScore: 20, obstacles: false },
+      { timeLimit: 60, targetScore: 40, obstacles: true, obstaclesCount: 3 },
+      { timeLimit: 60, targetScore: 50, obstacles: true, obstaclesCount: 5 }
+    ];
+    let currentLevelIndex = 0;
+    let currentLevel = levels[currentLevelIndex];
+
+    // Глобальные игровые переменные
+    let score = 0;
+    let totalScore = 0; // суммарный счет по уровням
+    let timeLeft = currentLevel.timeLimit;
+    let gameOver = false;
+    let lastTime = Date.now();
+
+    // Объект героя (робот AI)
+    const hero = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 20,
+      baseSpeed: 3,
+      speed: 3,
+      dx: 0,
+      dy: 0,
+      boostTime: 0,
+      shieldTime: 0,
+      magnetTime: 0
+    };
+
+    // Массивы игровых объектов
+    let friends = [];
+    let bonuses = [];
+    let enemies = [];
+    let enemyBullets = [];
+    let obstacles = [];
+
+    // Поддержка управления: клавиши WASD и стрелки
+    // Если нажаты стрелки, мапим их на соответствующие буквы
+    const keys = {};
+    window.addEventListener("keydown", (e) => {
+      let key = e.key;
+      if (key === "ArrowUp") key = "w";
+      if (key === "ArrowDown") key = "s";
+      if (key === "ArrowLeft") key = "a";
+      if (key === "ArrowRight") key = "d";
+      keys[key.toLowerCase()] = true;
+    });
+    window.addEventListener("keyup", (e) => {
+      let key = e.key;
+      if (key === "ArrowUp") key = "w";
+      if (key === "ArrowDown") key = "s";
+      if (key === "ArrowLeft") key = "a";
+      if (key === "ArrowRight") key = "d";
+      keys[key.toLowerCase()] = false;
+    });
+
+    // Функция для получения случайного числа
+    function randomRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // --- Создание игровых объектов ---
+    // Друзья – дружелюбные роботы (иконка: улыбающееся лицо).
+    // На уровнях 2 и 3 задаём случайное движение.
+    function spawnFriend() {
+      const friend = {
+        x: randomRange(20, canvas.width - 20),
+        y: randomRange(20, canvas.height - 20),
+        radius: 15
+      };
+      if (currentLevelIndex >= 1) {
+        friend.dx = randomRange(-30, 30);
+        friend.dy = randomRange(-30, 30);
+      } else {
+        friend.dx = 0; friend.dy = 0;
+      }
+      friends.push(friend);
+    }
+
+    // Бонусы – с иконками (используем Unicode‑символы)
+    function spawnBonus() {
+      let bonusType;
+      const r = Math.random();
+      if (r < 0.4) bonusType = "score";
+      else if (r < 0.7) bonusType = "speed";
+      else if (r < 0.9) bonusType = "shield";
+      else bonusType = "magnet";
+
+      let bonusColor;
+      switch (bonusType) {
+        case "score": bonusColor = "#0ff"; break;
+        case "speed": bonusColor = "#f0f"; break;
+        case "shield": bonusColor = "#00f"; break;
+        case "magnet": bonusColor = "#ffa500"; break;
+      }
+
+      const bonus = {
+        x: randomRange(20, canvas.width - 20),
+        y: randomRange(20, canvas.height - 20),
+        radius: 12,
+        type: bonusType,
+        lifetime: 10,
+        color: bonusColor
+      };
+      bonuses.push(bonus);
+    }
+
+    // Враги – вирусоподобные создания с шипами.
+    // На 3‑ем уровне врагам задаём движение.
+    function spawnEnemy() {
+      const enemy = {
+        x: randomRange(50, canvas.width - 50),
+        y: randomRange(50, canvas.height - 50),
+        radius: 18,
+        shootCooldown: randomRange(1, 3)
+      };
+      if (currentLevelIndex === 2) {
+        enemy.dx = randomRange(-30, 30);
+        enemy.dy = randomRange(-30, 30);
+      } else {
+        enemy.dx = 0; enemy.dy = 0;
+      }
+      enemies.push(enemy);
+    }
+
+    // Пули врагов
+    function spawnEnemyBullet(enemy) {
+      const dx = hero.x - enemy.x;
+      const dy = hero.y - enemy.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance === 0) return;
+      const bulletSpeed = 150;
+      const vx = (dx / distance) * bulletSpeed;
+      const vy = (dy / distance) * bulletSpeed;
+      const bullet = {
+        x: enemy.x,
+        y: enemy.y,
+        dx: vx,
+        dy: vy,
+        radius: 5,
+        color: "#f00"
+      };
+      enemyBullets.push(bullet);
+    }
+
+    // Препятствия – физические объекты (через них нельзя пройти)
+    function spawnObstacles(count) {
+      obstacles = [];
+      for (let i = 0; i < count; i++) {
+        const obstacle = {
+          x: randomRange(50, canvas.width - 50),
+          y: randomRange(50, canvas.height - 50),
+          radius: 30
+        };
+        obstacles.push(obstacle);
+      }
+    }
+
+    // --- Обновление игровых объектов ---
+    function updateEnemies(delta) {
+      enemies.forEach(enemy => {
+        enemy.shootCooldown -= delta;
+        if (enemy.shootCooldown <= 0) {
+          spawnEnemyBullet(enemy);
+          enemy.shootCooldown = randomRange(2, 4);
+        }
+        if (enemy.dx !== 0) {
+          enemy.x += enemy.dx * delta;
+          enemy.y += enemy.dy * delta;
+          if (enemy.x - enemy.radius < 0 || enemy.x + enemy.radius > canvas.width) {
+            enemy.dx = -enemy.dx;
+          }
+          if (enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > canvas.height) {
+            enemy.dy = -enemy.dy;
+          }
+        }
+      });
+    }
+
+    function updateEnemyBullets(delta) {
+      for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        const bullet = enemyBullets[i];
+        bullet.x += bullet.dx * delta;
+        bullet.y += bullet.dy * delta;
+        if (
+          bullet.x < -bullet.radius ||
+          bullet.x > canvas.width + bullet.radius ||
+          bullet.y < -bullet.radius ||
+          bullet.y > canvas.height + bullet.radius
+        ) {
+          enemyBullets.splice(i, 1);
+          continue;
+        }
+        if (isColliding(hero, bullet)) {
+          if (hero.shieldTime > 0) {
+            enemyBullets.splice(i, 1);
+          } else {
+            score -= 5;
+            if (score < 0) score = 0;
+            enemyBullets.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    // Простейшая проверка столкновения (для кругов)
+    function isColliding(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < (a.radius + b.radius);
+    }
+
+    // Обновление героя с учетом физических препятствий
+    function updateHero(delta) {
+      const oldX = hero.x;
+      const oldY = hero.y;
+      hero.dx = 0;
+      hero.dy = 0;
+      if (keys["a"]) { hero.dx = -hero.speed; }
+      if (keys["d"]) { hero.dx = hero.speed; }
+      if (keys["w"]) { hero.dy = -hero.speed; }
+      if (keys["s"]) { hero.dy = hero.speed; }
+      hero.x += hero.dx;
+      hero.y += hero.dy;
+      if (hero.x - hero.radius < 0) hero.x = hero.radius;
+      if (hero.x + hero.radius > canvas.width) hero.x = canvas.width - hero.radius;
+      if (hero.y - hero.radius < 0) hero.y = hero.radius;
+      if (hero.y + hero.radius > canvas.height) hero.y = canvas.height - hero.radius;
+      if (currentLevel.obstacles) {
+        for (let obs of obstacles) {
+          if (isColliding(hero, obs)) {
+            hero.x = oldX;
+            hero.y = oldY;
+            break;
+          }
+        }
+      }
+      if (hero.boostTime > 0) {
+        hero.boostTime -= delta;
+        if (hero.boostTime <= 0) hero.speed = hero.baseSpeed;
+      }
+      if (hero.shieldTime > 0) { hero.shieldTime -= delta; }
+      if (hero.magnetTime > 0) { hero.magnetTime -= delta; }
+    }
+
+    // Если бонус Magnet активен – друзья притягиваются к герою
+    function updateMagnetEffect(delta) {
+      if (hero.magnetTime > 0) {
+        const magnetFactor = 2;
+        friends.forEach(friend => {
+          friend.x += (hero.x - friend.x) * magnetFactor * delta;
+          friend.y += (hero.y - friend.y) * magnetFactor * delta;
+        });
+      }
+    }
+
+    // Обновление движения друзей (на уровнях 2 и 3)
+    function updateFriends(delta) {
+      friends.forEach(friend => {
+        if (friend.dx !== undefined) {
+          friend.x += friend.dx * delta;
+          friend.y += friend.dy * delta;
+          if (friend.x - friend.radius < 0 || friend.x + friend.radius > canvas.width) {
+            friend.dx = -friend.dx;
+          }
+          if (friend.y - friend.radius < 0 || friend.y + friend.radius > canvas.height) {
+            friend.dy = -friend.dy;
+          }
+        }
+      });
+    }
+
+    // --- Рисование игровых объектов ---
+    // Фон со сеткой
+    function drawBackground() {
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 1;
+      const gridSize = 50;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    // Рисование героя. На уровнях 1 и 2 – стандартный круг, на 3‑ем – округлый прямоугольник с дополнительным элементом (галстук) и ярким ореолом.
+    function drawHero() {
+      ctx.save();
+      ctx.translate(hero.x, hero.y);
+      const gradient = ctx.createRadialGradient(0, 0, hero.radius * 0.3, 0, 0, hero.radius);
+      gradient.addColorStop(0, "#ccc");
+      gradient.addColorStop(1, "#888");
+      
+      if (currentLevelIndex === 2) {
+        // На 3-м уровне рисуем округлый прямоугольник
+        let w = hero.radius * 2;
+        let h = hero.radius * 1.6;
+        drawRoundedRect(ctx, -hero.radius, -hero.radius * 0.8, w, h, 10);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        // Глаза
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-hero.radius/2, -hero.radius*0.4, hero.radius/8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(hero.radius/2, -hero.radius*0.4, hero.radius/8, 0, Math.PI * 2);
+        ctx.fill();
+        // Антенна
+        ctx.strokeStyle = "#888";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -hero.radius*0.8);
+        ctx.lineTo(0, -hero.radius*0.8 - 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -hero.radius*0.8 - 20, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#f00";
+        ctx.fill();
+        // Дополнительный элемент одежды (галстук)
+        ctx.fillStyle = "#00f";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-5, 20);
+        ctx.lineTo(5, 20);
+        ctx.closePath();
+        ctx.fill();
+        // Яркий светящийся ореол
+        ctx.beginPath();
+        ctx.arc(0, 0, hero.radius + 20, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0,255,255,0.7)";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        // Бонусные эффекты
+        if (hero.shieldTime > 0) {
+          ctx.beginPath();
+          ctx.arc(0, 0, hero.radius + 8, 0, Math.PI * 2);
+          ctx.strokeStyle = "#00f";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        if (hero.magnetTime > 0) {
+          ctx.beginPath();
+          ctx.arc(0, 0, hero.radius + 15, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffa500";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5,5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      } else {
+        // На уровнях 1 и 2 рисуем стандартный круг
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, hero.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-hero.radius/3, -hero.radius/5, hero.radius/8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(hero.radius/3, -hero.radius/5, hero.radius/8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#888";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -hero.radius);
+        ctx.lineTo(0, -hero.radius - 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -hero.radius - 20, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#f00";
+        ctx.fill();
+        if (currentLevelIndex >= 1) {
+          // На уровне 2: добавляем футуристический визор
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(-hero.radius * 0.6, -hero.radius * 0.8, hero.radius * 1.2, hero.radius * 0.5);
+          ctx.strokeStyle = "#0ff";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(-hero.radius * 0.5, -hero.radius * 0.5);
+          ctx.lineTo(hero.radius * 0.5, -hero.radius * 0.5);
+          ctx.stroke();
+        }
+        if (hero.shieldTime > 0) {
+          ctx.beginPath();
+          ctx.arc(0, 0, hero.radius + 8, 0, Math.PI * 2);
+          ctx.strokeStyle = "#00f";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        if (hero.magnetTime > 0) {
+          ctx.beginPath();
+          ctx.arc(0, 0, hero.radius + 15, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffa500";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5,5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      ctx.restore();
+    }
+
+    // Функция для рисования округлого прямоугольника (для героя на 3-м уровне)
+    function drawRoundedRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    // Рисование друзей – дружелюбных роботов
+    function drawFriends() {
+      friends.forEach(friend => { drawFriend(friend); });
+    }
+    function drawFriend(friend) {
+      ctx.save();
+      ctx.translate(friend.x, friend.y);
+      ctx.fillStyle = "#ff0";
+      ctx.beginPath();
+      ctx.arc(0, 0, friend.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(-friend.radius/3, -friend.radius/4, friend.radius/5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(friend.radius/3, -friend.radius/4, friend.radius/5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(0, 0, friend.radius/2, 0, Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Рисование бонусов – с иконками
+    function drawBonuses() {
+      bonuses.forEach(bonus => {
+        ctx.save();
+        ctx.translate(bonus.x, bonus.y);
+        ctx.beginPath();
+        ctx.arc(0, 0, bonus.radius, 0, Math.PI * 2);
+        ctx.fillStyle = bonus.color;
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = bonus.radius * 1.5 + "px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        let icon = "";
+        if (bonus.type === "score") { icon = "★"; }
+        else if (bonus.type === "speed") { icon = "⚡"; }
+        else if (bonus.type === "shield") { icon = "🛡"; }
+        else if (bonus.type === "magnet") { icon = "🧲"; }
+        ctx.fillText(icon, 0, 0);
+        ctx.restore();
+      });
+    }
+
+    // Рисование врагов – вирусоподобных созданий с шипами
+    function drawEnemies() {
+      enemies.forEach(enemy => { drawEnemy(enemy); });
+    }
+    function drawEnemy(enemy) {
+      ctx.save();
+      ctx.translate(enemy.x, enemy.y);
+      ctx.fillStyle = "#f00";
+      ctx.beginPath();
+      ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      for (let i = 0; i < 8; i++) {
+        let angle = i * (Math.PI * 2 / 8);
+        let startX = Math.cos(angle) * enemy.radius;
+        let startY = Math.sin(angle) * enemy.radius;
+        let endX = Math.cos(angle) * (enemy.radius + 5);
+        let endY = Math.sin(angle) * (enemy.radius + 5);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Рисование вражеских пуль
+    function drawEnemyBullets() {
+      enemyBullets.forEach(bullet => {
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+        ctx.fillStyle = bullet.color;
+        ctx.fill();
+      });
+    }
+
+    // Рисование препятствий
+    function drawObstacles() {
+      obstacles.forEach(obstacle => {
+        ctx.beginPath();
+        ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#555";
+        ctx.fill();
+      });
+    }
+
+    // --- Игровой цикл ---
+    function gameLoop() {
+      if (gameOver) return;
+      const now = Date.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+      timeLeft -= delta;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        finishLevel();
+        return;
+      }
+      updateHero(delta);
+      updateEnemies(delta);
+      updateEnemyBullets(delta);
+      updateMagnetEffect(delta);
+      if (currentLevelIndex >= 1) { updateFriends(delta); }
+      
+      // Обновляем бонусы (уменьшаем время жизни)
+      bonuses = bonuses.filter(bonus => {
+        bonus.lifetime -= delta;
+        return bonus.lifetime > 0;
+      });
+      
+      // Столкновение героя с друзьями
+      for (let i = friends.length - 1; i >= 0; i--) {
+        if (isColliding(hero, friends[i])) {
+          friends.splice(i, 1);
+          score += 1;
+        }
+      }
+      
+      // Столкновение героя с бонусами
+      for (let i = bonuses.length - 1; i >= 0; i--) {
+        if (isColliding(hero, bonuses[i])) {
+          const bonus = bonuses[i];
+          switch (bonus.type) {
+            case "score":
+              score += 10;
+              break;
+            case "speed":
+              hero.speed = hero.baseSpeed * 2;
+              hero.boostTime = 5;
+              break;
+            case "shield":
+              hero.shieldTime = 5;
+              break;
+            case "magnet":
+              hero.magnetTime = 5;
+              break;
+          }
+          bonuses.splice(i, 1);
+        }
+      }
+      
+      // Столкновение героя с врагами (убираем врагов)
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        if (isColliding(hero, enemies[i])) {
+          enemies.splice(i, 1);
+        }
+      }
+      
+      scoreEl.textContent = score;
+      timeEl.textContent = Math.ceil(timeLeft);
+      drawBackground();
+      drawFriends();
+      drawBonuses();
+      drawEnemies();
+      drawEnemyBullets();
+      if (currentLevel.obstacles) { drawObstacles(); }
+      drawHero();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Функция для рисования округлого прямоугольника (для героя на 3-м уровне)
+    function drawRoundedRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    // --- Завершение уровня ---
+    function finishLevel() {
+      gameOver = true;
+      if (score >= currentLevel.targetScore) {
+        totalScore += score;
+        if (currentLevelIndex < levels.length - 1) {
+          let message = (currentLevelIndex === 1)
+                        ? "ОГО! Вы близки к победе, еще чуть-чуть!"
+                        : "AI аплодирует вам! Вы красавчик!";
+          const nextLevel = levels[currentLevelIndex + 1];
+          levelCompleteScreenEl.innerHTML = `
+            <h1>${message}</h1>
+            <p>Следующий уровень: ${currentLevelIndex + 2} (Цель: ${nextLevel.targetScore} очков)</p>
+            <p>Общий счет: ${totalScore}</p>
+            <div id="nextLevelButton" onclick="startNextLevel()" style="width:120px; height:120px; background: radial-gradient(circle, #32cd32, #228b22); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:24px; color:#fff; cursor:pointer; margin-top:20px; box-shadow:0 0 15px rgba(34,139,34,0.8);">Начать</div>
+          `;
+          levelCompleteScreenEl.style.display = "flex";
+        } else {
+          levelCompleteScreenEl.innerHTML = `
+            <h1>Вы настоящий AI герой! Поздравляем, вы выиграли!</h1>
+            <p>Общий счет: ${totalScore}</p>
+            <div id="nextLevelButton" onclick="restartAll()" style="width:120px; height:120px; background: radial-gradient(circle, #32cd32, #228b22); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:24px; color:#fff; cursor:pointer; margin-top:20px; box-shadow:0 0 15px rgba(34,139,34,0.8);">Пройти еще раз</div>
+          `;
+          levelCompleteScreenEl.style.display = "flex";
+        }
+      } else {
+        gameOverEl.innerHTML = `
+          <h1>Не огорчайся, давай еще разок</h1>
+          <p>Общий счет: ${totalScore}</p>
+          <button onclick="restartGame()" style="padding:10px 20px; font-size:20px; cursor:pointer;">Давай еще разок</button>
+        `;
+        gameOverEl.style.display = "block";
+      }
+    }
+
+    // --- Функции запуска уровня и игры ---
+    function startLevel() {
+      score = 0;
+      timeLeft = currentLevel.timeLimit;
+      gameOver = false;
+      lastTime = Date.now();
+      hero.x = canvas.width / 2;
+      hero.y = canvas.height / 2;
+      hero.speed = hero.baseSpeed;
+      hero.boostTime = 0;
+      hero.shieldTime = 0;
+      hero.magnetTime = 0;
+      friends = [];
+      bonuses = [];
+      enemies = [];
+      enemyBullets = [];
+      obstacles = [];
+      if (currentLevel.obstacles) {
+        spawnObstacles(currentLevel.obstaclesCount);
+      }
+      gameOverEl.style.display = "none";
+      levelCompleteScreenEl.style.display = "none";
+      gameLoop();
+    }
+    window.startGame = function() {
+      highScore = 0;
+      totalScore = 0;
+      updateHighScoreDisplay();
+      currentLevelIndex = 0;
+      currentLevel = levels[currentLevelIndex];
+      startScreenEl.style.display = "none";
+      startLevel();
+    };
+    window.startNextLevel = function() {
+      levelCompleteScreenEl.style.display = "none";
+      currentLevelIndex++;
+      currentLevel = levels[currentLevelIndex];
+      startLevel();
+    };
+    window.restartGame = function() {
+      startLevel();
+    };
+    window.restartAll = function() {
+      currentLevelIndex = 0;
+      currentLevel = levels[currentLevelIndex];
+      totalScore = 0;
+      startLevel();
+    };
+
+    function updateHighScoreDisplay() {
+      highScoreDisplayEl.textContent = "High Score: " + highScore;
+    }
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // Интервалы для создания друзей, бонусов и врагов
+    setInterval(() => { if (!gameOver) spawnFriend(); }, 1500);
+    setInterval(() => { if (!gameOver) spawnBonus(); }, 7000);
+    setInterval(() => { if (!gameOver) spawnEnemy(); }, 8000);
+
+    // --- On-screen D-Pad для мобильного управления ---
+    function setupDpad() {
+      // Если устройство не поддерживает touch, скрываем D-Pad
+      if (!("ontouchstart" in window)) {
+        document.getElementById("dpad").style.display = "none";
+        return;
+      }
+      const btnUp = document.getElementById('btn-up');
+      const btnDown = document.getElementById('btn-down');
+      const btnLeft = document.getElementById('btn-left');
+      const btnRight = document.getElementById('btn-right');
+
+      // Функция установки/сброса для кнопки
+      function setKey(button, keyChar) {
+        button.addEventListener('touchstart', function(e) {
+          e.preventDefault();
+          keys[keyChar] = true;
+        });
+        button.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          keys[keyChar] = false;
+        });
+        button.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          keys[keyChar] = true;
+        });
+        button.addEventListener('mouseup', function(e) {
+          e.preventDefault();
+          keys[keyChar] = false;
+        });
+      }
+      setKey(btnUp, "w");
+      setKey(btnDown, "s");
+      setKey(btnLeft, "a");
+      setKey(btnRight, "d");
+    }
+    // Вызываем setupDpad после загрузки страницы
+    setupDpad();
+  </script>
+</body>
+</html>
