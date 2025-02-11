@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>M.AI.KE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body {
       margin: 0;
@@ -75,7 +76,7 @@
     #startCircle:hover {
       transform: scale(1.1);
     }
-    /* Экран завершения уровня (при успешном прохождении) */
+    /* Экран завершения уровня */
     #levelCompleteScreen {
       position: absolute;
       top: 0;
@@ -152,17 +153,13 @@
       align-items: center;
     }
     #dpad button {
-      width: 50px;
-      height: 50px;
-      margin: 5px;
-      font-size: 24px;
-      border-radius: 5px;
-      background: rgba(255,255,255,0.7);
+      width: 70px;      /* увеличено для удобства */
+      height: 70px;     /* увеличено для удобства */
+      margin: 10px;
+      font-size: 28px;  /* увеличен размер шрифта */
+      border-radius: 10px;
+      background: rgba(255,255,255,0.8);
       border: none;
-    }
-    #dpad div {
-      display: flex;
-      justify-content: center;
     }
   </style>
 </head>
@@ -282,6 +279,39 @@
       if (key === "ArrowRight") key = "d";
       keys[key.toLowerCase()] = false;
     });
+
+    // --- On-screen D-Pad для мобильного управления ---
+    // Также добавляем обработку касаний для кнопок D-Pad.
+    function setupDpad() {
+      const btnUp = document.getElementById('btn-up');
+      const btnDown = document.getElementById('btn-down');
+      const btnLeft = document.getElementById('btn-left');
+      const btnRight = document.getElementById('btn-right');
+
+      function setKey(button, keyChar) {
+        button.addEventListener('touchstart', function(e) {
+          e.preventDefault();
+          keys[keyChar] = true;
+        });
+        button.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          keys[keyChar] = false;
+        });
+        button.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          keys[keyChar] = true;
+        });
+        button.addEventListener('mouseup', function(e) {
+          e.preventDefault();
+          keys[keyChar] = false;
+        });
+      }
+      setKey(btnUp, "w");
+      setKey(btnDown, "s");
+      setKey(btnLeft, "a");
+      setKey(btnRight, "d");
+    }
+    setupDpad();
 
     // Функция для получения случайного числа
     function randomRange(min, max) {
@@ -432,7 +462,7 @@
       }
     }
 
-    // Простейшая проверка столкновения (для кругов)
+    // Простейшая проверка столкновения для кругов
     function isColliding(a, b) {
       const dx = a.x - b.x;
       const dy = a.y - b.y;
@@ -501,7 +531,6 @@
     }
 
     // --- Рисование игровых объектов ---
-    // Фон со сеткой
     function drawBackground() {
       ctx.fillStyle = "#111";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -522,7 +551,8 @@
       }
     }
 
-    // Рисование героя. На уровнях 1 и 2 – стандартный круг, на 3‑ем – округлый прямоугольник с дополнительным элементом (галстук) и ярким ореолом.
+    // Рисование героя.
+    // На уровнях 1 и 2 – стандартный круг, на 3‑ем – округлый прямоугольник с дополнительным элементом одежды (галстук) и ярким ореолом.
     function drawHero() {
       ctx.save();
       ctx.translate(hero.x, hero.y);
@@ -531,7 +561,6 @@
       gradient.addColorStop(1, "#888");
       
       if (currentLevelIndex === 2) {
-        // На 3-м уровне рисуем округлый прямоугольник
         let w = hero.radius * 2;
         let h = hero.radius * 1.6;
         drawRoundedRect(ctx, -hero.radius, -hero.radius * 0.8, w, h, 10);
@@ -556,7 +585,7 @@
         ctx.arc(0, -hero.radius*0.8 - 20, 5, 0, Math.PI * 2);
         ctx.fillStyle = "#f00";
         ctx.fill();
-        // Дополнительный элемент одежды (галстук)
+        // Галстук (дополнительный элемент одежды)
         ctx.fillStyle = "#00f";
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -588,7 +617,6 @@
           ctx.setLineDash([]);
         }
       } else {
-        // На уровнях 1 и 2 рисуем стандартный круг
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(0, 0, hero.radius, 0, Math.PI * 2);
@@ -611,7 +639,6 @@
         ctx.fillStyle = "#f00";
         ctx.fill();
         if (currentLevelIndex >= 1) {
-          // На уровне 2: добавляем футуристический визор
           ctx.fillStyle = "rgba(0,0,0,0.5)";
           ctx.fillRect(-hero.radius * 0.6, -hero.radius * 0.8, hero.radius * 1.2, hero.radius * 0.5);
           ctx.strokeStyle = "#0ff";
@@ -768,7 +795,7 @@
       updateMagnetEffect(delta);
       if (currentLevelIndex >= 1) { updateFriends(delta); }
       
-      // Обновляем бонусы (уменьшаем время жизни)
+      // Обновляем бонусы (уменьшаем их время жизни)
       bonuses = bonuses.filter(bonus => {
         bonus.lifetime -= delta;
         return bonus.lifetime > 0;
@@ -936,44 +963,6 @@
     setInterval(() => { if (!gameOver) spawnBonus(); }, 7000);
     setInterval(() => { if (!gameOver) spawnEnemy(); }, 8000);
 
-    // --- On-screen D-Pad для мобильного управления ---
-    function setupDpad() {
-      // Если устройство не поддерживает touch, скрываем D-Pad
-      if (!("ontouchstart" in window)) {
-        document.getElementById("dpad").style.display = "none";
-        return;
-      }
-      const btnUp = document.getElementById('btn-up');
-      const btnDown = document.getElementById('btn-down');
-      const btnLeft = document.getElementById('btn-left');
-      const btnRight = document.getElementById('btn-right');
-
-      // Функция установки/сброса для кнопки
-      function setKey(button, keyChar) {
-        button.addEventListener('touchstart', function(e) {
-          e.preventDefault();
-          keys[keyChar] = true;
-        });
-        button.addEventListener('touchend', function(e) {
-          e.preventDefault();
-          keys[keyChar] = false;
-        });
-        button.addEventListener('mousedown', function(e) {
-          e.preventDefault();
-          keys[keyChar] = true;
-        });
-        button.addEventListener('mouseup', function(e) {
-          e.preventDefault();
-          keys[keyChar] = false;
-        });
-      }
-      setKey(btnUp, "w");
-      setKey(btnDown, "s");
-      setKey(btnLeft, "a");
-      setKey(btnRight, "d");
-    }
-    // Вызываем setupDpad после загрузки страницы
-    setupDpad();
   </script>
 </body>
 </html>
