@@ -480,8 +480,8 @@
       if (keys["d"]) { hero.dx = hero.speed; }
       if (keys["w"]) { hero.dy = -hero.speed; }
       if (keys["s"]) { hero.dy = hero.speed; }
-      hero.x += hero.dx;
-      hero.y += hero.dy;
+      hero.x += hero.dx * delta;
+      hero.y += hero.dy * delta;
       if (hero.x - hero.radius < 0) hero.x = hero.radius;
       if (hero.x + hero.radius > canvas.width) hero.x = canvas.width - hero.radius;
       if (hero.y - hero.radius < 0) hero.y = hero.radius;
